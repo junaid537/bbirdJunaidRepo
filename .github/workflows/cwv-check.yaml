@@ -312,7 +312,7 @@ jobs:
                         title: issueTitle,
                         body: issueBody,
                         labels: validLabels,
-                        assignees: ['github-copilot'],
+                        # assignees: ['github-copilot'],
                       });
                       
                       issueNumbers.push(issue.data.number);
@@ -329,7 +329,6 @@ jobs:
                         deviceType, 
                         originalAuthor
                       );
-                      
                       if (copilotTriggered) {
                         console.log(`🤖 Copilot automatically triggered for issue #${issue.data.number}`);
                       }
