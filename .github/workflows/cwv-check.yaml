@@ -243,7 +243,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                  body: copilotPrompt
+                  body: copilotPrompt,
                 });
                 console.log(`✅ Triggered Copilot PR creation for issue #${issueNumber}`);
                 return true;
@@ -311,7 +311,8 @@ jobs:
                         repo: context.repo.repo,
                         title: issueTitle,
                         body: issueBody,
-                        labels: validLabels
+                        labels: validLabels,
+                        assignees: ['github-copilot'],
                       });
                       
                       issueNumbers.push(issue.data.number);
