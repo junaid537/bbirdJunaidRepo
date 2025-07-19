@@ -46,7 +46,39 @@ jobs:
           PREVIEW_URL="https://${BRANCH}--${REPO}--${OWNER}.aem.page"
           echo "PREVIEW_URL=$PREVIEW_URL" >> $GITHUB_OUTPUT
 
-      - name: Run CWV Agent (Mobile & Desktop)
+name: CWV PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  run-cwv-check:
+    runs-on: ubuntu-latest
+    environment: cwv-check-env-junaid
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install CWV Agent
+        run: npm install --no-save git+https://github.com/ramboz/cwv-agent.git
+
+      - name: Use hardcoded AEM URL
+        id: extract_urls
+        run: echo '["https://main--bbird--aemsites.aem.page/"]' > urls.json
+
+      - name: Run CWV Agent for AEM URL
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           AZURE_OPENAI_API_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_API_DEPLOYMENT_NAME }}
@@ -58,13 +90,23 @@ jobs:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
           PUPPETEER_EXECUTABLE_PATH: "/usr/bin/google-chrome"
         run: |
-          echo "⚡ Using URL: ${{ steps.build_url.outputs.preview_url }}"
-          node node_modules/cwv-agent/index.js --action prompt --url ${{ steps.build_url.outputs.preview_url }} --device mobile --model gpt-4o
-          node node_modules/cwv-agent/index.js --action prompt --url ${{ steps.build_url.outputs.preview_url }} --device desktop --model gpt-4o
-          # Copy results to a top-level folder for uploading
           mkdir -p cwv-output
-          cp node_modules/cwv-agent/.cache/*.report.gpt4o.summary.md cwv-output/
-          cp node_modules/cwv-agent/.cache/*.suggestions.gpt4o.json cwv-output/
+          echo "Running CWV audits for hardcoded AEM URL..."
+          cat urls.json | jq -r '.[]' | while read URL; do
+            echo "Auditing $URL"
+            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device mobile --model gpt-4o
+            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device desktop --model gpt-4o
+          done
+          if [ -d "node_modules/cwv-agent/.cache" ]; then
+            cp node_modules/cwv-agent/.cache/*.report.gpt4o.summary.md cwv-output/ 2>/dev/null || echo "No summary reports found."
+            cp node_modules/cwv-agent/.cache/*.suggestions.gpt4o.json cwv-output/ 2>/dev/null || echo "No suggestions found."
+            ls -la cwv-output/
+          else
+            echo "Cache directory not found"
+          fi
+
+      # (keep your other steps: analyze_structure, create_issues, comment, upload-artifact, etc.)
+
 
       - name: Upload Desktop Report
         uses: actions/upload-artifact@v4
