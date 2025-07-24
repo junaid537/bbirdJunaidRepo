@@ -312,7 +312,7 @@ jobs:
                         title: issueTitle,
                         body: issueBody,
                         labels: validLabels,
-                        assignees: ['copilot'],
+
                       });
                       
                       issueNumbers.push(issue.data.number);
