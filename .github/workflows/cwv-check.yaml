@@ -75,19 +75,20 @@ jobs:
                 const labels = [
                   'copilot:run',
                   'copilot-ready',
-                  `cwv-${(s.metric || 'unknown').toLowerCase()}`,
+                  ...((s.metric || 'unknown').split(',').map(m => `cwv-${m.trim().toLowerCase()}`)),
                   `priority-${(s.priority || 'medium').toLowerCase()}`,
                   `device-${deviceType}`,
                   `category-${(s.category || 'general').toLowerCase().replace(/[^a-z0-9]/g, '-')}`
-                ];
+                ].filter(label => !label.includes(','));
+
                 const issue = await github.rest.issues.create({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   title,
                   body,
-                  labels,
-                  assignees: ['github-copilot']
+                  labels
                 });
+
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -96,6 +97,7 @@ jobs:
                 });
               }
             }
+
 
 
 # name: CWV PR Check
