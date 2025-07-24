@@ -312,14 +312,13 @@ jobs:
                         title: issueTitle,
                         body: issueBody,
                         labels: validLabels,
-                        assignees: ['Copilot'],
                       });
                       
                       issueNumbers.push(issue.data.number);
                       console.log(`✅ Created issue #${issue.data.number}: ${issueTitle}`);
                       
                       // Wait a moment before triggering Copilot
-                      await new Promise(resolve => setTimeout(resolve, 1000));
+                      await new Promise(resolve => setTimeout(resolve, 5000));
                       
                       // Automatically trigger Copilot PR creation
                       const copilotTriggered = await triggerCopilotPR(
