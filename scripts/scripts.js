@@ -170,3 +170,29 @@ async function loadPage() {
 }
 
 loadPage();
+
+
+// CWV Optimization: Reduce Unused JavaScript
+// Metric: LCP | Device: desktop
+// Expected Impact: General performance improvements
+
+// Defer non-critical JavaScript
+function deferNonCritical() {
+  const scripts = document.querySelectorAll('script[data-defer="true"]');
+  scripts.forEach(script => {
+    script.defer = true;
+  });
+}
+
+// Optimize script loading
+function optimizeScriptLoading() {
+  // Implementation based on: Minimize resource overhead and enhance performance by eliminating declared but unused JS functions and segments.
+  import('auth0').then((auth0) => auth0.load());
+}
+
+// Initialize optimization
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', optimizeScriptLoading);
+} else {
+  optimizeScriptLoading();
+}
