@@ -293,7 +293,7 @@ jobs:
                     
                     // Create labels array with proper sanitization
                     const labels = [
-                      'cwv-suggestion',
+                      'copilot:run',
                       'performance',
                       `cwv-${(suggestion.metric || 'unknown').toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
                       `priority-${(suggestion.priority || 'medium').toLowerCase()}`,
