@@ -255,3 +255,22 @@ main .section.highlight {
   margin: 0;
   padding: 40px 0;
 }
+
+
+/* CWV Optimization: Reduce Render-Blocking Styles */
+/* Metric: LCP | Device: mobile */
+/* Expected Impact: LCP improvement of at least 300ms */
+
+/* Critical CSS optimization */
+.optimize-loading {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px;
+}
+
+/* Reduce layout shift */
+img, video {
+  aspect-ratio: attr(width) / attr(height);
+  height: auto;
+}
+
+/* Implementation: Render-blocking CSS impacts LCP timing. Consider splitting critical and non-critical styles. */
