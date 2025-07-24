@@ -255,3 +255,22 @@ main .section.highlight {
   margin: 0;
   padding: 40px 0;
 }
+
+
+/* CWV Optimization: Defer Non-Critical JS and CSS */
+/* Metric: LCP | Device: desktop */
+/* Expected Impact: Reduce LCP and improve loading performance */
+
+/* Critical CSS optimization */
+.optimize-loading {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px;
+}
+
+/* Reduce layout shift */
+img, video {
+  aspect-ratio: attr(width) / attr(height);
+  height: auto;
+}
+
+/* Implementation: Deferring non-essential JS and CSS aligns with speeding up critical renders by offloading non-essential code blocks post initial rendering. */
