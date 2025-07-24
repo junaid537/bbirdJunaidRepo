@@ -229,7 +229,7 @@ jobs:
             3. Focus on improving ${suggestion.metric} metric by ${suggestion.impact}
             4. Target ${deviceType} device performance
             5. Create PR with detailed performance impact description
-            6. Assign PR to @${github-copilot}
+            6. Copilot I want you to please create a PR for this issue
             7. Link this issue to the PR
 
             **AEM-Specific Context:**
