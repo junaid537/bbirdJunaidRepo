@@ -42,16 +42,14 @@ jobs:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
           PUPPETEER_EXECUTABLE_PATH: "/usr/bin/google-chrome"
         run: |
-          set -x  # enable debug logs
+          set -x
           mkdir -p cwv-output
-          echo "Running CWV audits for listed AEM URLs..."
           echo "Running CWV audits for hardcoded AEM URL..."
           cat urls.json | jq -r '.[]' | while read URL; do
             echo "🔍 Auditing $URL"
             node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device mobile --model gpt-4o || echo "❌ Mobile audit failed"
             node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device desktop --model gpt-4o || echo "❌ Desktop audit failed"
           done
-          
           echo "📂 Checking cache directory..."
           if [ -d "node_modules/cwv-agent/.cache" ]; then
             cp node_modules/cwv-agent/.cache/*.report.gpt4o.summary.md cwv-output/ 2>/dev/null || echo "⚠️ No summary reports found."
@@ -60,6 +58,7 @@ jobs:
           else
             echo "❌ Cache directory not found"
           fi
+
       - name: Upload Desktop Report
         uses: actions/upload-artifact@v4
         with:
@@ -93,6 +92,9 @@ jobs:
       - name: Create GitHub Issues and Assign Copilot
         if: always()
         uses: actions/github-script@v7
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          MY_PAT_TOKEN: ${{ secrets.MY_PAT_TOKEN }}
         with:
           github-token: ${{ secrets.MY_PAT_TOKEN }}
           script: |
@@ -107,7 +109,6 @@ jobs:
             const suggestions = JSON.parse(fs.readFileSync(`${path}/${file}`, 'utf-8'));
             console.log(`📄 Found ${suggestions.length} suggestions`);
 
-            // Get Copilot actor ID via GraphQL
             const fetch = globalThis.fetch || (await import('node-fetch')).default;
             const repo = process.env.GITHUB_REPOSITORY.split('/');
             const owner = repo[0];
@@ -175,7 +176,10 @@ jobs:
               console.log(`✅ Created & assigned issue #${issue.data.number}`);
             }
 
-      # - name: Analyze Project Structure for Copilot Context
+
+      
+
+      # - name: Analyze Project Structure for Copilot Contexts
       #   id: analyze_structure
       #   run: |
       #     echo "📁 Analyzing project structure for Copilot context..."
