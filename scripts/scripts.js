@@ -116,6 +116,10 @@ export function decorateMain(main) {
 async function loadEager(doc) {
   document.documentElement.lang = 'en';
   decorateTemplateAndTheme();
+
+  // Load non-critical CSS asynchronously to avoid render-blocking
+  loadCSS(`${window.hlx.codeBasePath}/styles/non-critical.css`);
+
   const main = doc.querySelector('main');
   if (main) {
     decorateMain(main);
