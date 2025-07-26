@@ -11,11 +11,9 @@ import {
   loadSection,
   loadSections,
   loadCSS,
-  loadBlock,
-  decorateBlock,
 } from './aem.js';
 
-import createElement from './utils.js';
+import { setupLazyBlocks, preloadResources } from './lazy-loading.js';
 
 /**
  * Builds hero block and prepends to main in a new section.
@@ -36,11 +34,16 @@ function buildHeroBlock(main) {
  * load fonts.css and set a session storage flag
  */
 async function loadFonts() {
-  await loadCSS(`${window.hlx.codeBasePath}/styles/fonts.css`);
-  try {
-    if (!window.location.hostname.includes('localhost')) sessionStorage.setItem('fonts-loaded', 'true');
-  } catch (e) {
-    // do nothing
+  // Only load fonts if they haven't been loaded yet
+  if (!sessionStorage.getItem('fonts-loaded')) {
+    await loadCSS(`${window.hlx.codeBasePath}/styles/fonts.css`);
+    try {
+      if (!window.location.hostname.includes('localhost')) {
+        sessionStorage.setItem('fonts-loaded', 'true');
+      }
+    } catch (e) {
+      // do nothing
+    }
   }
 }
 
@@ -56,44 +59,6 @@ function buildAutoBlocks(main) {
     console.error('Auto Blocking failed', error);
   }
 }
-
-const preflightListener = async () => {
-  const section = createElement('div');
-  section.className = 'preflight-results';
-
-  const preflightBlock = buildBlock('preflight', '');
-  section.appendChild(preflightBlock);
-
-  await decorateBlock(preflightBlock);
-  await loadBlock(preflightBlock);
-
-  const { default: getModal } = await import('../blocks/modal/modal.js');
-  const modal = await getModal('SEO Check Results', () => section.innerHTML, (dlg) => {
-    dlg.querySelector('button.close')?.addEventListener('click', () => dlg.close());
-  });
-
-  modal.showModal();
-};
-
-const setupPreflightListener = () => {
-  const sk = document.querySelector('aem-sidekick');
-  if (sk) {
-    sk.addEventListener('plugin-used', (event) => {
-      if (event.detail === 'preflight') {
-        sk.addEventListener('custom:preflight', preflightListener, { once: true });
-      }
-    });
-  } else {
-    document.addEventListener('sidekick-ready', () => {
-      const sidekick = document.querySelector('aem-sidekick');
-      sidekick.addEventListener('plugin-used', (event) => {
-        if (event.detail === 'preflight') {
-          sidekick.addEventListener('custom:preflight', preflightListener, { once: true });
-        }
-      });
-    }, { once: true });
-  }
-};
 
 /**
  * Decorates the main element.
@@ -141,16 +106,36 @@ async function loadLazy(doc) {
   const main = doc.querySelector('main');
   await loadSections(main);
 
+  // Setup lazy loading for below-the-fold blocks
+  setupLazyBlocks(main);
+
+  // Preload critical resources that might be needed
+  preloadResources([
+    `${window.hlx.codeBasePath}/styles/lazy-styles.css`,
+    '/blocks/header/header.js',
+    '/blocks/footer/footer.js',
+  ]);
+
   const { hash } = window.location;
   const element = hash ? doc.getElementById(hash.substring(1)) : false;
   if (hash && element) element.scrollIntoView();
 
-  loadHeader(doc.querySelector('header'));
-  loadFooter(doc.querySelector('footer'));
+  // Load header and footer lazily using requestIdleCallback for better performance
+  if (window.requestIdleCallback) {
+    window.requestIdleCallback(() => {
+      loadHeader(doc.querySelector('header'));
+      loadFooter(doc.querySelector('footer'));
+    });
+  } else {
+    // Fallback for browsers without requestIdleCallback
+    setTimeout(() => {
+      loadHeader(doc.querySelector('header'));
+      loadFooter(doc.querySelector('footer'));
+    }, 100);
+  }
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   loadFonts();
-  setupPreflightListener();
 }
 
 /**

@@ -139,6 +139,17 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Dynamically load Auth0 library only when needed
+  if (!window.auth0) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
