@@ -116,7 +116,7 @@ jobs:
             };
 
             const graphqlHeaders = {
-              'Authorization': `Bearer ${process.env.MY_PAT_TOKEN}`,
+              'Authorization': `Bearer ${secrets.MY_PAT_TOKEN}`,
               'Content-Type': 'application/json'
             };
 
