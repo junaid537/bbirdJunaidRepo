@@ -40,26 +40,36 @@ export function setupLazyBlocks(main) {
   const blocks = main.querySelectorAll('.block[data-block-status="initialized"]');
   const firstSection = main.querySelector('.section');
 
+  // Define heavy blocks that should be loaded with more aggressive lazy loading
+  const heavyBlocks = ['video', 'preflight'];
+
   blocks.forEach((block) => {
     const section = block.closest('.section');
+    const { blockName } = block.dataset;
 
-    // Skip blocks in the first section (above the fold)
-    if (section === firstSection) {
+    // Skip blocks in the first section (above the fold) unless they're heavy
+    if (section === firstSection && !heavyBlocks.includes(blockName)) {
       return;
     }
+
+    // Use more conservative threshold for heavy blocks
+    const isHeavyBlock = heavyBlocks.includes(blockName);
+    const threshold = isHeavyBlock ? 0.01 : 0.1;
+    const rootMargin = isHeavyBlock ? '50px' : '100px';
 
     const observer = createIntersectionObserver((target) => {
       if (target.dataset.blockStatus === 'initialized') {
         loadBlock(target);
         observer?.unobserve(target);
       }
-    });
+    }, { threshold, rootMargin });
 
     if (observer) {
       observer.observe(block);
     } else {
-      // Fallback: load after a delay
-      setTimeout(() => loadBlock(block), 1000);
+      // Fallback: load after a delay, longer for heavy blocks
+      const delay = isHeavyBlock ? 2000 : 1000;
+      setTimeout(() => loadBlock(block), delay);
     }
   });
 }
