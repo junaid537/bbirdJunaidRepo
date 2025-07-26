@@ -129,29 +129,13 @@ blockquote {
   margin-bottom: 0.25em;
 }
 
-code,
-pre {
-  font-size: var(--body-font-size-s);
-}
 
-pre {
-  padding: 16px;
-  border-radius: 8px;
-  background-color: var(--light-color);
-  overflow-x: auto;
-  white-space: pre;
-}
 
 main > div {
   margin: 40px 16px;
 }
 
-input,
-textarea,
-select,
-button {
-  font: inherit;
-}
+
 
 /* links */
 a:any-link {
@@ -160,10 +144,7 @@ a:any-link {
   word-break: break-word;
 }
 
-a:hover {
-  color: var(--link-hover-color);
-  text-decoration: underline;
-}
+
 
 /* buttons */
 a.button:any-link,
@@ -189,26 +170,7 @@ button {
   white-space: nowrap;
 }
 
-a.button:hover,
-a.button:focus,
-button:hover,
-button:focus {
-  background-color: var(--link-hover-color);
-  cursor: pointer;
-}
 
-button:disabled,
-button:disabled:hover {
-  background-color: var(--light-color);
-  cursor: unset;
-}
-
-a.button.secondary,
-button.secondary {
-  background-color: unset;
-  border: 2px solid currentcolor;
-  color: var(--text-color);
-}
 
 main img {
   max-width: 100%;
@@ -216,16 +178,7 @@ main img {
   height: auto;
 }
 
-.icon {
-  display: inline-block;
-  height: 24px;
-  width: 24px;
-}
 
-.icon img {
-  height: 100%;
-  width: 100%;
-}
 
 /* sections */
 main > .section {
@@ -248,10 +201,4 @@ main > .section:first-of-type {
   }
 }
 
-/* section metadata */
-main .section.light,
-main .section.highlight {
-  background-color: var(--light-color);
-  margin: 0;
-  padding: 40px 0;
-}
+
