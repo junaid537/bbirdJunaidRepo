@@ -59,22 +59,6 @@ jobs:
             echo "❌ Cache directory not found"
           fi
 
-      - name: Upload Desktop Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: desktop-report
-          path: cwv-output/*.desktop.report.gpt4o.summary.md
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Upload Mobile Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobile-report
-          path: cwv-output/*.mobile.report.gpt4o.summary.md
-          if-no-files-found: error
-          retention-days: 1
-
       - name: Upload Suggestions JSON
         uses: actions/upload-artifact@v4
         with:
@@ -82,12 +66,6 @@ jobs:
           path: cwv-output/*.suggestions.gpt4o.json
           if-no-files-found: error
           retention-days: 1
-
-      - name: Print project file tree (excluding node_modules)
-        run: |
-          sudo apt-get update && sudo apt-get install -y tree
-          echo "📁 Project structure (excluding node_modules):"
-          tree -L 3 -a -I 'node_modules'
 
       - name: Create GitHub Issues and Assign Copilot
         if: always()
@@ -97,13 +75,36 @@ jobs:
           script: |
             const fs = require('fs');
             const path = './cwv-output';
-            
-            // Check if directory exists
+
+            const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            async function waitUntilCopilotIsFree(owner, repo, maxRetries = 10) {
+              for (let i = 0; i < maxRetries; i++) {
+                const result = await github.rest.issues.listForRepo({
+                  owner,
+                  repo,
+                  labels: 'copilot',
+                  state: 'open'
+                });
+
+                const copilotBusy = result.data.some(issue =>
+                  issue.assignee?.login === 'copilot-swe-agent'
+                );
+
+                if (!copilotBusy) return true;
+                console.log(`⏳ Copilot still busy... retrying in 30s (attempt ${i + 1})`);
+                await wait(30000);
+              }
+
+              console.log("❌ Copilot did not become available in time.");
+              return false;
+            }
+
             if (!fs.existsSync(path)) {
               console.log("⚠️ CWV output directory not found.");
               return;
             }
-            
+
             const file = fs.readdirSync(path).find(f => f.endsWith('.suggestions.gpt4o.json'));
             if (!file) {
               console.log("⚠️ No suggestions JSON found.");
@@ -113,7 +114,6 @@ jobs:
             const suggestions = JSON.parse(fs.readFileSync(`${path}/${file}`, 'utf-8'));
             console.log(`📄 Found ${suggestions.length} suggestions`);
 
-            // Use context instead of environment variables
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
@@ -122,103 +122,310 @@ jobs:
                 query($owner: String!, $name: String!) {
                   repository(owner: $owner, name: $name) {
                     suggestedActors(capabilities: [CAN_BE_ASSIGNED], first: 100) {
-                      nodes { 
-                        login 
-                        id 
-                      }
+                      nodes { login id }
                     }
                   }
                 }
               `,
-              variables: {
-                owner: owner,
-                name: repo
-              }
+              variables: { owner, name: repo }
             };
 
-            try {
-              const response = await fetch('https://api.github.com/graphql', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(graphqlQuery)
-              });
+            const response = await fetch('https://api.github.com/graphql', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(graphqlQuery)
+            });
 
-              if (!response.ok) {
-                console.log(`❌ GraphQL request failed: ${response.status} ${response.statusText}`);
-                return;
-              }
-
-              const data = await response.json();
-              console.log('GraphQL Response:', JSON.stringify(data, null, 2));
-              
-              if (data.errors) {
-                console.log('❌ GraphQL errors:', data.errors);
-                return;
-              }
-
-              if (!data.data || !data.data.repository) {
-                console.log('❌ No repository data found in response');
-                return;
-              }
-
-              const copilot = data.data.repository.suggestedActors.nodes.find(n => n.login.includes('copilot'));
-              if (!copilot) {
-                console.log("❌ Copilot not found in suggestedActors.");
-                console.log("Available actors:", data.data.repository.suggestedActors.nodes.map(n => n.login));
-                return;
-              }
-
-              for (const s of suggestions) {
-                try {
-                  const issue = await github.rest.issues.create({
-                    owner,
-                    repo,
-                    title: `💡 CWV Suggestion: ${s.title || s.suggestion.slice(0, 70)}`,
-                    body: `**Suggestion**: ${s.suggestion}\n\n**Device**: ${s.device}\n**URL**: ${s.url}`,
-                    labels: ['copilot:run', 'copilot-ready']
-                  });
-
-                  const assignMutation = {
-                    query: `
-                      mutation($subjectId: ID!, $actorId: ID!) {
-                        assignSuggestedActor(input: {
-                          subjectId: $subjectId,
-                          actorId: $actorId
-                        }) {
-                          clientMutationId
-                        }
-                      }
-                    `,
-                    variables: {
-                      subjectId: issue.data.node_id,
-                      actorId: copilot.id
-                    }
-                  };
-
-                  const assignResponse = await fetch('https://api.github.com/graphql', {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
-                      'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(assignMutation)
-                  });
-
-                  if (!assignResponse.ok) {
-                    console.log(`⚠️ Failed to assign issue #${issue.data.number}: ${assignResponse.status}`);
-                  }
-
-                  console.log(`✅ Created & assigned issue #${issue.data.number}`);
-                } catch (error) {
-                  console.log(`❌ Error creating issue for suggestion: ${error.message}`);
-                }
-              }
-            } catch (error) {
-              console.log(`❌ Script error: ${error.message}`);
+            const data = await response.json();
+            if (data.errors || !data.data?.repository) {
+              console.log("❌ GraphQL error or missing data:", data.errors || data);
+              return;
             }
+
+            const copilot = data.data.repository.suggestedActors.nodes.find(n => n.login.includes('copilot'));
+            if (!copilot) {
+              console.log("❌ Copilot not found in suggestedActors.");
+              return;
+            }
+
+            for (const s of suggestions) {
+              const isFree = await waitUntilCopilotIsFree(owner, repo);
+              if (!isFree) {
+                console.log("⏭️ Skipping issue creation due to busy Copilot.");
+                break;
+              }
+
+              try {
+                const issue = await github.rest.issues.create({
+                  owner,
+                  repo,
+                  title: `💡 CWV Suggestion: ${s.title || s.suggestion.slice(0, 70)}`,
+                  body: `**Suggestion**: ${s.suggestion}\n\n**Device**: ${s.device}\n**URL**: ${s.url}`,
+                  labels: ['copilot', 'copilot:run', 'copilot-ready']
+                });
+
+                const assignMutation = {
+                  query: `
+                    mutation($subjectId: ID!, $actorId: ID!) {
+                      assignSuggestedActor(input: {
+                        subjectId: $subjectId,
+                        actorId: $actorId
+                      }) {
+                        clientMutationId
+                      }
+                    }
+                  `,
+                  variables: {
+                    subjectId: issue.data.node_id,
+                    actorId: copilot.id
+                  }
+                };
+
+                const assignResponse = await fetch('https://api.github.com/graphql', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(assignMutation)
+                });
+
+                const assignData = await assignResponse.json();
+                if (!assignResponse.ok || assignData.errors) {
+                  console.log(`⚠️ Failed to assign Copilot:`, assignData.errors || assignResponse.statusText);
+                } else {
+                  console.log(`✅ Created & assigned issue #${issue.data.number}`);
+                }
+
+              } catch (err) {
+                console.log(`❌ Error creating or assigning issue: ${err.message}`);
+              }
+            }
+
+# name: CWV PR Check
+
+# on:
+#   pull_request:
+#     types: [opened, synchronize]
+
+# permissions:
+#   contents: write
+#   pull-requests: write
+#   issues: write
+
+# jobs:
+#   run-cwv-check:
+#     runs-on: ubuntu-latest
+#     environment: cwv-check-env-junaid
+
+#     steps:
+#       - name: Checkout repo
+#         uses: actions/checkout@v3
+
+#       - name: Set up Node.js
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '18'
+
+#       - name: Install CWV Agent
+#         run: npm install --no-save git+https://github.com/ramboz/cwv-agent.git
+
+#       - name: Use hardcoded AEM URL
+#         id: extract_urls
+#         run: echo '["https://main--bbird--aemsites.aem.page/"]' > urls.json
+
+#       - name: Run CWV Agent for Each AEM URL
+#         env:
+#           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+#           AZURE_OPENAI_API_DEPLOYMENT_NAME: ${{ secrets.AZURE_OPENAI_API_DEPLOYMENT_NAME }}
+#           AZURE_OPENAI_API_INSTANCE_NAME: ${{ secrets.AZURE_OPENAI_API_INSTANCE_NAME }}
+#           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+#           AZURE_OPENAI_API_VERSION: ${{ secrets.AZURE_OPENAI_API_VERSION }}
+#           GOOGLE_PAGESPEED_INSIGHTS_API_KEY: ${{ secrets.GOOGLE_PAGESPEED_INSIGHTS_API_KEY }}
+#           GOOGLE_CRUX_API_KEY: ${{ secrets.GOOGLE_CRUX_API_KEY }}
+#           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
+#           PUPPETEER_EXECUTABLE_PATH: "/usr/bin/google-chrome"
+#         run: |
+#           set -x
+#           mkdir -p cwv-output
+#           echo "Running CWV audits for hardcoded AEM URL..."
+#           cat urls.json | jq -r '.[]' | while read URL; do
+#             echo "🔍 Auditing $URL"
+#             node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device mobile --model gpt-4o || echo "❌ Mobile audit failed"
+#             node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device desktop --model gpt-4o || echo "❌ Desktop audit failed"
+#           done
+#           echo "📂 Checking cache directory..."
+#           if [ -d "node_modules/cwv-agent/.cache" ]; then
+#             cp node_modules/cwv-agent/.cache/*.report.gpt4o.summary.md cwv-output/ 2>/dev/null || echo "⚠️ No summary reports found."
+#             cp node_modules/cwv-agent/.cache/*.suggestions.gpt4o.json cwv-output/ 2>/dev/null || echo "⚠️ No suggestions found."
+#             ls -la cwv-output/
+#           else
+#             echo "❌ Cache directory not found"
+#           fi
+
+#       - name: Upload Desktop Report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: desktop-report
+#           path: cwv-output/*.desktop.report.gpt4o.summary.md
+#           if-no-files-found: error
+#           retention-days: 1
+
+#       - name: Upload Mobile Report
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: mobile-report
+#           path: cwv-output/*.mobile.report.gpt4o.summary.md
+#           if-no-files-found: error
+#           retention-days: 1
+
+#       - name: Upload Suggestions JSON
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: suggestions-json
+#           path: cwv-output/*.suggestions.gpt4o.json
+#           if-no-files-found: error
+#           retention-days: 1
+
+#       - name: Print project file tree (excluding node_modules)
+#         run: |
+#           sudo apt-get update && sudo apt-get install -y tree
+#           echo "📁 Project structure (excluding node_modules):"
+#           tree -L 3 -a -I 'node_modules'
+
+#       - name: Create GitHub Issues and Assign Copilot
+#         if: always()
+#         uses: actions/github-script@v7
+#         with:
+#           github-token: ${{ secrets.MY_PAT_TOKEN }}
+#           script: |
+#             const fs = require('fs');
+#             const path = './cwv-output';
+            
+#             // Check if directory exists
+#             if (!fs.existsSync(path)) {
+#               console.log("⚠️ CWV output directory not found.");
+#               return;
+#             }
+            
+#             const file = fs.readdirSync(path).find(f => f.endsWith('.suggestions.gpt4o.json'));
+#             if (!file) {
+#               console.log("⚠️ No suggestions JSON found.");
+#               return;
+#             }
+
+#             const suggestions = JSON.parse(fs.readFileSync(`${path}/${file}`, 'utf-8'));
+#             console.log(`📄 Found ${suggestions.length} suggestions`);
+
+#             // Use context instead of environment variables
+#             const owner = context.repo.owner;
+#             const repo = context.repo.repo;
+
+#             const graphqlQuery = {
+#               query: `
+#                 query($owner: String!, $name: String!) {
+#                   repository(owner: $owner, name: $name) {
+#                     suggestedActors(capabilities: [CAN_BE_ASSIGNED], first: 100) {
+#                       nodes { 
+#                         login 
+#                         id 
+#                       }
+#                     }
+#                   }
+#                 }
+#               `,
+#               variables: {
+#                 owner: owner,
+#                 name: repo
+#               }
+#             };
+
+#             try {
+#               const response = await fetch('https://api.github.com/graphql', {
+#                 method: 'POST',
+#                 headers: {
+#                   'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
+#                   'Content-Type': 'application/json'
+#                 },
+#                 body: JSON.stringify(graphqlQuery)
+#               });
+
+#               if (!response.ok) {
+#                 console.log(`❌ GraphQL request failed: ${response.status} ${response.statusText}`);
+#                 return;
+#               }
+
+#               const data = await response.json();
+#               console.log('GraphQL Response:', JSON.stringify(data, null, 2));
+              
+#               if (data.errors) {
+#                 console.log('❌ GraphQL errors:', data.errors);
+#                 return;
+#               }
+
+#               if (!data.data || !data.data.repository) {
+#                 console.log('❌ No repository data found in response');
+#                 return;
+#               }
+
+#               const copilot = data.data.repository.suggestedActors.nodes.find(n => n.login.includes('copilot'));
+#               if (!copilot) {
+#                 console.log("❌ Copilot not found in suggestedActors.");
+#                 console.log("Available actors:", data.data.repository.suggestedActors.nodes.map(n => n.login));
+#                 return;
+#               }
+
+#               for (const s of suggestions) {
+#                 try {
+#                   const issue = await github.rest.issues.create({
+#                     owner,
+#                     repo,
+#                     title: `💡 CWV Suggestion: ${s.title || s.suggestion.slice(0, 70)}`,
+#                     body: `**Suggestion**: ${s.suggestion}\n\n**Device**: ${s.device}\n**URL**: ${s.url}`,
+#                     labels: ['copilot:run', 'copilot-ready']
+#                   });
+
+#                   const assignMutation = {
+#                     query: `
+#                       mutation($subjectId: ID!, $actorId: ID!) {
+#                         assignSuggestedActor(input: {
+#                           subjectId: $subjectId,
+#                           actorId: $actorId
+#                         }) {
+#                           clientMutationId
+#                         }
+#                       }
+#                     `,
+#                     variables: {
+#                       subjectId: issue.data.node_id,
+#                       actorId: copilot.id
+#                     }
+#                   };
+
+#                   const assignResponse = await fetch('https://api.github.com/graphql', {
+#                     method: 'POST',
+#                     headers: {
+#                       'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
+#                       'Content-Type': 'application/json'
+#                     },
+#                     body: JSON.stringify(assignMutation)
+#                   });
+
+#                   if (!assignResponse.ok) {
+#                     console.log(`⚠️ Failed to assign issue #${issue.data.number}: ${assignResponse.status}`);
+#                   }
+
+#                   console.log(`✅ Created & assigned issue #${issue.data.number}`);
+#                 } catch (error) {
+#                   console.log(`❌ Error creating issue for suggestion: ${error.message}`);
+#                 }
+#               }
+#             } catch (error) {
+#               console.log(`❌ Script error: ${error.message}`);
+#             }
 
 
 
