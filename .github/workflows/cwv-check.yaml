@@ -80,24 +80,12 @@ jobs:
 
             async function waitUntilCopilotIsFree(owner, repo, maxRetries = 10) {
               for (let i = 0; i < maxRetries; i++) {
-                const result = await github.rest.issues.listForRepo({
-                  owner,
-                  repo,
-                  labels: 'copilot',
-                  state: 'open'
-                });
-
-                const copilotBusy = result.data.some(issue =>
-                  issue.assignee?.login === 'copilot' || 
-                  issue.assignee?.login === 'github-copilot[bot]' ||
-                  issue.assignee?.login === 'copilot-swe-agent'
-                );
-
+                const result = await github.rest.issues.listForRepo({ owner, repo, labels: 'copilot', state: 'open' });
+                const copilotBusy = result.data.some(issue => issue.assignee?.login === 'copilot-swe-agent');
                 if (!copilotBusy) return true;
                 console.log(`⏳ Copilot still busy... retrying in 30s (attempt ${i + 1})`);
                 await wait(30000);
               }
-
               console.log("❌ Copilot did not become available in time.");
               return false;
             }
@@ -107,98 +95,114 @@ jobs:
               return;
             }
 
-            const file = fs.readdirSync(path).find(f => f.endsWith('.suggestions.gpt4o.json'));
-            if (!file) {
-              console.log("⚠️ No suggestions JSON found.");
+            const allFiles = fs.readdirSync(path).filter(f => f.endsWith('.suggestions.gpt4o.json'));
+            if (allFiles.length === 0) {
+              console.log("⚠️ No suggestions JSON files found.");
               return;
             }
 
-            const suggestions = JSON.parse(fs.readFileSync(`${path}/${file}`, 'utf-8'));
-            console.log(`📄 Found ${suggestions.length} suggestions`);
+            let allSuggestions = [];
+            for (const file of allFiles) {
+              const raw = JSON.parse(fs.readFileSync(`${path}/${file}`, 'utf-8'));
+              const suggestions = raw?.suggestions;
+              if (!Array.isArray(suggestions)) continue;
+              for (const s of suggestions) {
+                s.device = raw.deviceType || 'unknown';
+                s.url = raw.url;
+                allSuggestions.push(s);
+              }
+            }
+
+            if (allSuggestions.length === 0) {
+              console.log("❌ No valid suggestions found in any files.");
+              return;
+            }
+
+            console.log(`📄 Found ${allSuggestions.length} total suggestions.`);
 
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-
-            // Try to get repository collaborators instead of suggestedActors
-            let copilotUsername = null;
-            
-            try {
-              // Method 1: Check for common Copilot usernames
-              const possibleCopilotNames = [
-                'github-copilot[bot]',
-                'copilot',
-                'copilot-swe-agent'
-              ];
-              
-              for (const name of possibleCopilotNames) {
-                try {
-                  const user = await github.rest.users.getByUsername({
-                    username: name
-                  });
-                  if (user.data) {
-                    copilotUsername = name;
-                    console.log(`✅ Found Copilot user: ${name}`);
-                    break;
+            const graphqlQuery = {
+              query: `
+                query($owner: String!, $name: String!) {
+                  repository(owner: $owner, name: $name) {
+                    suggestedActors(capabilities: [CAN_BE_ASSIGNED], first: 100) {
+                      nodes { login id }
+                    }
                   }
-                } catch (err) {
-                  console.log(`❌ User ${name} not found: ${err.message}`);
                 }
-              }
+              `,
+              variables: { owner, name: repo }
+            };
 
-              if (!copilotUsername) {
-                console.log("❌ No Copilot user found. Creating issues without assignment.");
-              }
+            const response = await fetch('https://api.github.com/graphql', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(graphqlQuery)
+            });
 
-            } catch (error) {
-              console.log("❌ Error finding Copilot user:", error.message);
+            const data = await response.json();
+            const copilot = data?.data?.repository?.suggestedActors?.nodes?.find(n => n.login === 'copilot-swe-agent');
+            if (!copilot) {
+              console.log("❌ Copilot Coding Agent not found. Enable it in repo settings.");
+              return;
             }
 
-            for (const s of suggestions) {
-              if (copilotUsername) {
-                const isFree = await waitUntilCopilotIsFree(owner, repo);
-                if (!isFree) {
-                  console.log("⏭️ Skipping issue creation due to busy Copilot.");
-                  break;
-                }
-              }
+            for (const s of allSuggestions) {
+              const isFree = await waitUntilCopilotIsFree(owner, repo);
+              if (!isFree) break;
 
               try {
-                const issueData = {
+                const issue = await github.rest.issues.create({
                   owner,
                   repo,
-                  title: `💡 CWV Suggestion: ${s.title || s.suggestion.slice(0, 70)}`,
-                  body: `**Suggestion**: ${s.suggestion}\n\n**Device**: ${s.device}\n**URL**: ${s.url}\n\n@${copilotUsername || 'github-copilot[bot]'} Please help implement this performance improvement.`,
-                  labels: ['performance', 'cwv', 'copilot', 'copilot:run']
+                  title: `💡 CWV Suggestion: ${s.title.slice(0, 70)}`,
+                  body: `**Suggestion**: ${s.description}\n\n**Metric**: ${s.metric}\n**Device**: ${s.device}\n**URL**: ${s.url}\n\n**Impact**: ${s.impact}\n**Implementation**: ${s.implementation}`,
+                  labels: ['copilot', 'copilot:run', 'copilot-ready']
+                });
+
+                const assignMutation = {
+                  query: `
+                    mutation($subjectId: ID!, $actorId: ID!) {
+                      assignSuggestedActor(input: {
+                        subjectId: $subjectId,
+                        actorId: $actorId
+                      }) {
+                        clientMutationId
+                      }
+                    }
+                  `,
+                  variables: {
+                    subjectId: issue.data.node_id,
+                    actorId: copilot.id
+                  }
                 };
 
-                // Add assignee if we found a Copilot user
-                if (copilotUsername) {
-                  issueData.assignees = [copilotUsername];
-                }
+                const assignResponse = await fetch('https://api.github.com/graphql', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${{ secrets.MY_PAT_TOKEN }}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(assignMutation)
+                });
 
-                const issue = await github.rest.issues.create(issueData);
-
-                console.log(`✅ Created issue #${issue.data.number}${copilotUsername ? ' and assigned to ' + copilotUsername : ''}`);
-
-                // Add a comment to trigger Copilot if assignment didn't work
-                if (copilotUsername) {
-                  try {
-                    await github.rest.issues.createComment({
-                      owner,
-                      repo,
-                      issue_number: issue.data.number,
-                      body: `@${copilotUsername} please help implement this Core Web Vitals improvement suggestion.`
-                    });
-                    console.log(`✅ Added trigger comment for issue #${issue.data.number}`);
-                  } catch (commentError) {
-                    console.log(`⚠️ Failed to add comment: ${commentError.message}`);
-                  }
+                const assignResult = await assignResponse.json();
+                if (!assignResponse.ok || assignResult.errors) {
+                  console.log(`⚠️ Assignment failed for issue #${issue.data.number}:`, assignResult.errors || assignResponse.statusText);
+                } else {
+                  console.log(`✅ Created & assigned issue #${issue.data.number} to Copilot`);
                 }
 
               } catch (err) {
-                console.log(`❌ Error creating issue: ${err.message}`);
+                console.log(`❌ Error creating or assigning issue: ${err.message}`);
               }
             }
+
+
 
 # name: CWV PR Check
 
