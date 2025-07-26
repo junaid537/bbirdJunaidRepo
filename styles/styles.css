@@ -43,14 +43,42 @@
 /* fallback fonts */
 @font-face {
   font-family: roboto-condensed-fallback;
+  font-weight: 700;
   size-adjust: 88.82%;
-  src: local('Arial');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  src: local('Arial'), local('Helvetica'), local('sans-serif');
 }
 
 @font-face {
   font-family: roboto-fallback;
+  font-weight: 400;
   size-adjust: 99.529%;
-  src: local('Arial');
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  src: local('Arial'), local('Helvetica'), local('sans-serif');
+}
+
+@font-face {
+  font-family: roboto-fallback;
+  font-weight: 500;
+  size-adjust: 99.2%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  src: local('Arial'), local('Helvetica'), local('sans-serif');
+}
+
+@font-face {
+  font-family: roboto-fallback;
+  font-weight: 700;
+  size-adjust: 98.8%;
+  ascent-override: 92%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+  src: local('Arial'), local('Helvetica'), local('sans-serif');
 }
 
 @media (width >= 900px) {
