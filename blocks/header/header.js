@@ -139,6 +139,17 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Wait for Auth0 to be loaded if it's not available yet
+  if (!window.auth0) {
+    await new Promise((resolve) => {
+      if (window.auth0) {
+        resolve();
+      } else {
+        window.addEventListener('auth0-loaded', resolve, { once: true });
+      }
+    });
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
