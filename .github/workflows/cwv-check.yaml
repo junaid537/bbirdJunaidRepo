@@ -115,8 +115,9 @@ jobs:
               variables: { owner, name: repo }
             };
 
+            const token = core.getInput('github-token');
             const graphqlHeaders = {
-              'Authorization': `Bearer ${secrets.MY_PAT_TOKEN}`,
+              'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             };
 
