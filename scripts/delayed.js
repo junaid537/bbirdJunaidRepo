@@ -23,3 +23,25 @@ if (shouldLoadAuth0()) {
 
 // Expose loadAuth0 globally for blocks that need it
 window.loadAuth0 = loadAuth0;
+
+// Lazy load analytics and tracking scripts
+const loadAnalytics = () => {
+  // Add any analytics scripts here that don't impact LCP
+  // Example: Google Analytics, Adobe Analytics, etc.
+};
+
+// Load analytics after user interaction or after a delay
+let analyticsLoaded = false;
+const loadAnalyticsOnInteraction = () => {
+  if (!analyticsLoaded) {
+    analyticsLoaded = true;
+    loadAnalytics();
+  }
+};
+
+// Load analytics on first user interaction or after 5 seconds
+['click', 'scroll', 'touchstart', 'keydown'].forEach((event) => {
+  document.addEventListener(event, loadAnalyticsOnInteraction, { once: true, passive: true });
+});
+
+setTimeout(loadAnalyticsOnInteraction, 5000);

@@ -33,6 +33,7 @@ function buildHeroBlock(main) {
  * load fonts.css and set a session storage flag
  */
 async function loadFonts() {
+  // Use font display: optional strategy for better LCP
   await loadCSS(`${window.hlx.codeBasePath}/styles/fonts.css`);
   try {
     if (!window.location.hostname.includes('localhost')) sessionStorage.setItem('fonts-loaded', 'true');
@@ -130,7 +131,12 @@ async function loadEager(doc) {
   try {
     /* if desktop (proxy for fast connection) or fonts already loaded, load fonts.css */
     if (window.innerWidth >= 900 || sessionStorage.getItem('fonts-loaded')) {
-      loadFonts();
+      // Use requestIdleCallback for non-critical font loading to avoid blocking LCP
+      if (window.requestIdleCallback) {
+        requestIdleCallback(() => loadFonts());
+      } else {
+        setTimeout(() => loadFonts(), 0);
+      }
     }
   } catch (e) {
     // do nothing
