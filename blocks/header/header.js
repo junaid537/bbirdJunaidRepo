@@ -53,6 +53,11 @@ function focusNavSection() {
 }
 
 async function updateLoginState() {
+  if (!auth0) {
+    // Auth0 not ready yet, skip update
+    return;
+  }
+
   const user = await auth0.getUser();
   const loginBtn = document.querySelector('.nav-tools a[title="Login"]');
 
@@ -78,11 +83,19 @@ async function updateLoginState() {
     lgOutBtnP.append(lgOutBtnA);
 
     lgOutBtnA.addEventListener('click', async () => {
+      if (!auth0) {
+        // eslint-disable-next-line no-console
+        console.log('Auth0 not ready yet, please wait...');
+        return;
+      }
       await auth0.logout({ returnTo: window.location.origin });
     });
   } else {
     loginBtn.style.display = 'block';
-    document.querySelector('#logout-button').style.display = 'none';
+    const logoutButton = document.querySelector('#logout-button');
+    if (logoutButton) {
+      logoutButton.style.display = 'none';
+    }
   }
 }
 
@@ -138,7 +151,38 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
   }
 }
 
-async function initAuth0() {
+function setupAuthEventListeners() {
+  const loginBtn = document.querySelector('.nav-tools a[title="Login"]');
+  // const logoutBtn = document.querySelector('.nav-tools a[title="Logout"]');
+
+  if (loginBtn) {
+    loginBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!auth0) {
+        // If auth0 not ready yet, show loading state or defer action
+        // eslint-disable-next-line no-console
+        console.log('Auth0 not ready yet, please wait...');
+        return;
+      }
+      await auth0.loginWithRedirect({
+        redirect_uri: window.location.origin,
+      });
+    });
+  }
+
+  /**
+  logoutBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await auth0.logout({
+      logoutParams: {
+        returnTo: window.location.origin
+      }
+    });
+  });
+    * */
+}
+
+async function initAuth0Internal() {
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
@@ -165,26 +209,21 @@ async function initAuth0() {
     }
   }
 
-  const loginBtn = document.querySelector('.nav-tools a[title="Login"]');
-  // const logoutBtn = document.querySelector('.nav-tools a[title="Logout"]');
+  setupAuthEventListeners();
+}
 
-  loginBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    await auth0.loginWithRedirect({
-      redirect_uri: window.location.origin,
+async function initAuth0() {
+  // Check if auth0 is available, if not wait for it
+  if (!window.auth0) {
+    return new Promise((resolve) => {
+      window.addEventListener('auth0-ready', async () => {
+        await initAuth0Internal();
+        resolve();
+      }, { once: true });
     });
-  });
+  }
 
-  /**
-  logoutBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    await auth0.logout({
-      logoutParams: {
-        returnTo: window.location.origin
-      }
-    });
-  });
-    * */
+  return initAuth0Internal();
 }
 
 /**
