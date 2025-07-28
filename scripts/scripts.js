@@ -15,7 +15,7 @@ import {
   decorateBlock,
 } from './aem.js';
 
-import createElement from './utils.js';
+import createElement, { executeWhenIdle, executeOnNextFrame } from './utils.js';
 
 /**
  * Builds hero block and prepends to main in a new section.
@@ -100,13 +100,17 @@ const setupPreflightListener = () => {
  * @param {Element} main The main element
  */
 // eslint-disable-next-line import/prefer-default-export
-export function decorateMain(main) {
-  // hopefully forward compatible button decoration
+export async function decorateMain(main) {
+  // Critical path - execute immediately for LCP
   decorateButtons(main);
-  decorateIcons(main);
   buildAutoBlocks(main);
   decorateSections(main);
   decorateBlocks(main);
+
+  // Non-critical decorations - defer to idle time to improve INP
+  executeWhenIdle(() => {
+    decorateIcons(main);
+  });
 }
 
 /**
@@ -118,7 +122,7 @@ async function loadEager(doc) {
   decorateTemplateAndTheme();
   const main = doc.querySelector('main');
   if (main) {
-    decorateMain(main);
+    await decorateMain(main);
     document.body.classList.add('appear');
     await loadSection(main.querySelector('.section'), waitForFirstImage);
   }
@@ -145,12 +149,29 @@ async function loadLazy(doc) {
   const element = hash ? doc.getElementById(hash.substring(1)) : false;
   if (hash && element) element.scrollIntoView();
 
-  loadHeader(doc.querySelector('header'));
-  loadFooter(doc.querySelector('footer'));
+  // Defer header and footer loading to idle time to improve INP
+  executeWhenIdle(() => {
+    loadHeader(doc.querySelector('header'));
+  });
 
-  loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
-  loadFonts();
-  setupPreflightListener();
+  executeWhenIdle(() => {
+    loadFooter(doc.querySelector('footer'));
+  });
+
+  // Defer CSS loading to next frame to avoid blocking
+  executeOnNextFrame(() => {
+    loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
+  });
+
+  // Defer font loading to idle time
+  executeWhenIdle(() => {
+    loadFonts();
+  });
+
+  // Defer preflight setup to idle time as it's non-critical
+  executeWhenIdle(() => {
+    setupPreflightListener();
+  });
 }
 
 /**
