@@ -1,7 +1,5 @@
 import {
   buildBlock,
-  loadHeader,
-  loadFooter,
   decorateButtons,
   decorateIcons,
   decorateSections,
@@ -9,11 +7,10 @@ import {
   decorateTemplateAndTheme,
   waitForFirstImage,
   loadSection,
-  loadSections,
   loadCSS,
   loadBlock,
   decorateBlock,
-} from './aem.js';
+} from './aem-core.js';
 
 import createElement from './utils.js';
 
@@ -36,6 +33,7 @@ function buildHeroBlock(main) {
  * load fonts.css and set a session storage flag
  */
 async function loadFonts() {
+  // Use font display: optional strategy for better LCP
   await loadCSS(`${window.hlx.codeBasePath}/styles/fonts.css`);
   try {
     if (!window.location.hostname.includes('localhost')) sessionStorage.setItem('fonts-loaded', 'true');
@@ -76,6 +74,13 @@ const preflightListener = async () => {
 };
 
 const setupPreflightListener = () => {
+  // Only load preflight in development/authoring environments
+  const isDev = window.location.hostname.includes('localhost')
+                || window.location.hostname.includes('.hlx.')
+                || window.location.hostname.includes('aem.page');
+
+  if (!isDev) return; // Skip preflight setup in production
+
   const sk = document.querySelector('aem-sidekick');
   if (sk) {
     sk.addEventListener('plugin-used', (event) => {
@@ -126,7 +131,12 @@ async function loadEager(doc) {
   try {
     /* if desktop (proxy for fast connection) or fonts already loaded, load fonts.css */
     if (window.innerWidth >= 900 || sessionStorage.getItem('fonts-loaded')) {
-      loadFonts();
+      // Use requestIdleCallback for non-critical font loading to avoid blocking LCP
+      if (window.requestIdleCallback) {
+        requestIdleCallback(() => loadFonts());
+      } else {
+        setTimeout(() => loadFonts(), 0);
+      }
     }
   } catch (e) {
     // do nothing
@@ -139,6 +149,10 @@ async function loadEager(doc) {
  */
 async function loadLazy(doc) {
   const main = doc.querySelector('main');
+
+  // Dynamic import for non-critical functions
+  const { loadSections, loadHeader, loadFooter } = await import('./aem.js');
+
   await loadSections(main);
 
   const { hash } = window.location;
