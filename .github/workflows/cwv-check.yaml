@@ -24,8 +24,7 @@ jobs:
           node-version: '18'
 
       - name: Install CWV Agent
-        run: npm install --no-save git+https://github.com/ramboz/cwv-agent.git
-
+        run: npm install --no-save git+https://github.com/ramboz/cwv-agent.git#mcp-integration
       - name: Use hardcoded AEM URL
         id: extract_urls
         run: echo '["https://main--bbird--aemsites.aem.page/"]' > urls.json
@@ -569,14 +568,6 @@ jobs:
         with:
           name: mobile-report
           path: cwv-output/*.mobile.report.gpt4o.summary.md
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload Suggestions JSON
-        uses: actions/upload-artifact@v4
-        with:
-          name: suggestions-json
-          path: cwv-output/*.suggestions.gpt4o.json
           if-no-files-found: warn
           retention-days: 7
 
