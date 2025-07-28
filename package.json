@@ -6,7 +6,10 @@
   "scripts": {
     "lint:js": "eslint .",
     "lint:css": "stylelint blocks/**/*.css styles/*.css",
-    "lint": "npm run lint:js && npm run lint:css"
+    "lint": "npm run lint:js && npm run lint:css",
+    "minify:js": "node tools/build.js",
+    "build": "npm run minify:js",
+    "build:production": "npm run lint && npm run build"
   },
   "repository": {
     "type": "git",
@@ -24,6 +27,7 @@
     "eslint-config-airbnb-base": "15.0.0",
     "eslint-plugin-import": "2.31.0",
     "stylelint": "16.10.0",
-    "stylelint-config-standard": "36.0.1"
+    "stylelint-config-standard": "36.0.1",
+    "terser": "^5.43.1"
   }
 }
