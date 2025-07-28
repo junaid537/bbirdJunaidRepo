@@ -40,6 +40,7 @@ jobs:
           GOOGLE_CRUX_API_KEY: ${{ secrets.GOOGLE_CRUX_API_KEY }}
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
           PUPPETEER_EXECUTABLE_PATH: "/usr/bin/google-chrome"
+          MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
         run: |
           set -x
           mkdir -p cwv-output
