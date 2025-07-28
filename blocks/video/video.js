@@ -4,6 +4,8 @@
  * https://www.hlx.live/developer/block-collection/video
  */
 
+import { executeWhenIdle } from '../../scripts/utils.js';
+
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function embedYoutube(url, autoplay, background) {
@@ -133,13 +135,16 @@ export default async function decorate(block) {
   }
 
   if (!placeholder || autoplay) {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) {
-        observer.disconnect();
-        const playOnLoad = autoplay && !prefersReducedMotion.matches;
-        loadVideoEmbed(block, link, playOnLoad, autoplay);
-      }
+    // Defer intersection observer setup to idle time for better INP
+    executeWhenIdle(() => {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          observer.disconnect();
+          const playOnLoad = autoplay && !prefersReducedMotion.matches;
+          loadVideoEmbed(block, link, playOnLoad, autoplay);
+        }
+      });
+      observer.observe(block);
     });
-    observer.observe(block);
   }
 }
