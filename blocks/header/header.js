@@ -139,6 +139,32 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Ensure Auth0 is loaded before initializing
+  if (!window.auth0) {
+    if (window.loadAuth0) {
+      window.loadAuth0();
+      // Wait for Auth0 to load
+      await new Promise((resolve) => {
+        const checkAuth0 = () => {
+          if (window.auth0) {
+            resolve();
+          } else {
+            setTimeout(checkAuth0, 100);
+          }
+        };
+        checkAuth0();
+      });
+    } else {
+      // Fallback: load Auth0 directly if loadAuth0 helper is not available
+      const script = document.createElement('script');
+      script.src = 'https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js';
+      document.head.appendChild(script);
+      await new Promise((resolve) => {
+        script.onload = resolve;
+      });
+    }
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',

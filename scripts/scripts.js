@@ -1,7 +1,5 @@
 import {
   buildBlock,
-  loadHeader,
-  loadFooter,
   decorateButtons,
   decorateIcons,
   decorateSections,
@@ -9,11 +7,10 @@ import {
   decorateTemplateAndTheme,
   waitForFirstImage,
   loadSection,
-  loadSections,
   loadCSS,
   loadBlock,
   decorateBlock,
-} from './aem.js';
+} from './aem-core.js';
 
 import createElement from './utils.js';
 
@@ -76,6 +73,13 @@ const preflightListener = async () => {
 };
 
 const setupPreflightListener = () => {
+  // Only load preflight in development/authoring environments
+  const isDev = window.location.hostname.includes('localhost')
+                || window.location.hostname.includes('.hlx.')
+                || window.location.hostname.includes('aem.page');
+
+  if (!isDev) return; // Skip preflight setup in production
+
   const sk = document.querySelector('aem-sidekick');
   if (sk) {
     sk.addEventListener('plugin-used', (event) => {
@@ -139,6 +143,10 @@ async function loadEager(doc) {
  */
 async function loadLazy(doc) {
   const main = doc.querySelector('main');
+
+  // Dynamic import for non-critical functions
+  const { loadSections, loadHeader, loadFooter } = await import('./aem.js');
+
   await loadSections(main);
 
   const { hash } = window.location;
