@@ -25,6 +25,7 @@ jobs:
 
       - name: Install CWV Agent
         run: npm install --no-save git+https://github.com/ramboz/cwv-agent.git#mcp-integration
+        
       - name: Use hardcoded AEM URL
         id: extract_urls
         run: echo '["https://main--bbird--aemsites.aem.page/"]' > urls.json
