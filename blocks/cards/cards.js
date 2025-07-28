@@ -12,7 +12,14 @@ export default function decorate(block) {
     });
     ul.append(li);
   });
-  ul.querySelectorAll('picture > img').forEach((img) => img.closest('picture').replaceWith(createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }])));
+  ul.querySelectorAll('picture > img').forEach((img) => {
+    // Use responsive breakpoints optimized for desktop performance
+    const breakpoints = [
+      { media: '(min-width: 900px)', width: '400' },
+      { width: '350' },
+    ];
+    img.closest('picture').replaceWith(createOptimizedPicture(img.src, img.alt, false, breakpoints));
+  });
   block.textContent = '';
   block.append(ul);
 }
