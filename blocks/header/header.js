@@ -138,7 +138,24 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
   }
 }
 
+async function waitForAuth0() {
+  // Wait for auth0 script to be loaded (since it's deferred)
+  let attempts = 0;
+  const maxAttempts = 100; // Maximum 1 second wait
+
+  while (!window.auth0 && attempts < maxAttempts) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((resolve) => { setTimeout(resolve, 10); });
+    attempts += 1;
+  }
+
+  if (!window.auth0) {
+    throw new Error('Auth0 script failed to load');
+  }
+}
+
 async function initAuth0() {
+  await waitForAuth0();
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
