@@ -1,5 +1,6 @@
 import { getMetadata } from '../../scripts/aem.js';
 import { loadFragment } from '../fragment/fragment.js';
+import { executeWhenIdle } from '../../scripts/utils.js';
 
 // media query match that indicates mobile/tablet width
 const isDesktop = window.matchMedia('(min-width: 900px)');
@@ -249,14 +250,21 @@ export default async function decorate(block) {
   hamburger.addEventListener('click', () => toggleMenu(nav, navSections));
   nav.prepend(hamburger);
   nav.setAttribute('aria-expanded', 'false');
-  // prevent mobile nav behavior on window resize
-  toggleMenu(nav, navSections, isDesktop.matches);
-  isDesktop.addEventListener('change', () => toggleMenu(nav, navSections, isDesktop.matches));
+
+  // Defer non-critical navigation setup to idle time
+  executeWhenIdle(() => {
+    // prevent mobile nav behavior on window resize
+    toggleMenu(nav, navSections, isDesktop.matches);
+    isDesktop.addEventListener('change', () => toggleMenu(nav, navSections, isDesktop.matches));
+  });
 
   const navWrapper = document.createElement('div');
   navWrapper.className = 'nav-wrapper';
   navWrapper.append(nav);
   block.append(navWrapper);
 
-  await initAuth0();
+  // Defer Auth0 initialization to idle time to improve INP
+  executeWhenIdle(async () => {
+    await initAuth0();
+  });
 }
