@@ -120,7 +120,8 @@ async function loadEager(doc) {
   if (main) {
     decorateMain(main);
     document.body.classList.add('appear');
-    await loadSection(main.querySelector('.section'), waitForFirstImage);
+    // Load first section eagerly for LCP optimization
+    await loadSection(main.querySelector('.section'), waitForFirstImage, true);
   }
 
   try {
@@ -150,7 +151,7 @@ async function loadLazy(doc) {
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   loadFonts();
-  setupPreflightListener();
+  // Move preflight setup to delayed loading for better performance
 }
 
 /**
@@ -160,6 +161,8 @@ async function loadLazy(doc) {
 function loadDelayed() {
   // eslint-disable-next-line import/no-cycle
   window.setTimeout(() => import('./delayed.js'), 3000);
+  // Setup preflight listener in delayed loading for better performance
+  window.setTimeout(() => setupPreflightListener(), 3000);
   // load anything that can be postponed to the latest here
 }
 

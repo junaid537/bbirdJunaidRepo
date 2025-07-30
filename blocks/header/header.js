@@ -139,6 +139,17 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Lazy load Auth0 if not already loaded
+  if (!window.auth0) {
+    const { initAuth0ForHeader } = await import('../../scripts/delayed.js');
+    const auth0Loaded = await initAuth0ForHeader();
+    if (!auth0Loaded) {
+      // eslint-disable-next-line no-console
+      console.warn('Auth0 failed to load, authentication features disabled');
+      return;
+    }
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
