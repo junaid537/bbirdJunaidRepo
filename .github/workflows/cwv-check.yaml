@@ -482,6 +482,7 @@ jobs:
               throw error;
             }
 
+
       - name: Handle Copilot Unavailable
         if: steps.get_copilot_id.outputs.copilot_available != 'true'
         uses: actions/github-script@v7
