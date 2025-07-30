@@ -565,38 +565,67 @@ function buildBlock(blockName, content) {
 }
 
 /**
- * Loads JS and CSS for a block.
+ * Loads the actual block assets (CSS and JS)
  * @param {Element} block The block element
+ * @param {string} blockName The name of the block
  */
-async function loadBlock(block) {
+async function loadBlockAssets(block, blockName) {
+  try {
+    const cssLoaded = loadCSS(`${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.css`);
+    const decorationComplete = new Promise((resolve) => {
+      (async () => {
+        try {
+          const mod = await import(
+            `${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.js`
+          );
+          if (mod.default) {
+            await mod.default(block);
+          }
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.log(`failed to load module for ${blockName}`, error);
+        }
+        resolve();
+      })();
+    });
+    await Promise.all([cssLoaded, decorationComplete]);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.log(`failed to load block ${blockName}`, error);
+  }
+  block.dataset.blockStatus = 'loaded';
+  return block;
+}
+
+/**
+ * Loads JS and CSS for a block with lazy loading support.
+ * @param {Element} block The block element
+ * @param {boolean} eager Whether to load immediately or lazily
+ */
+async function loadBlock(block, eager = false) {
   const status = block.dataset.blockStatus;
   if (status !== 'loading' && status !== 'loaded') {
     block.dataset.blockStatus = 'loading';
     const { blockName } = block.dataset;
-    try {
-      const cssLoaded = loadCSS(`${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.css`);
-      const decorationComplete = new Promise((resolve) => {
-        (async () => {
-          try {
-            const mod = await import(
-              `${window.hlx.codeBasePath}/blocks/${blockName}/${blockName}.js`
-            );
-            if (mod.default) {
-              await mod.default(block);
+
+    // For non-eager blocks, use intersection observer for lazy loading
+    if (!eager && 'IntersectionObserver' in window) {
+      return new Promise((resolve) => {
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              observer.unobserve(block);
+              loadBlockAssets(block, blockName).then(resolve);
             }
-          } catch (error) {
-            // eslint-disable-next-line no-console
-            console.log(`failed to load module for ${blockName}`, error);
-          }
-          resolve();
-        })();
+          });
+        }, {
+          rootMargin: '50px', // Start loading 50px before the block is visible
+        });
+        observer.observe(block);
       });
-      await Promise.all([cssLoaded, decorationComplete]);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log(`failed to load block ${blockName}`, error);
     }
-    block.dataset.blockStatus = 'loaded';
+    // Load immediately for eager blocks or when IntersectionObserver is not supported
+    return loadBlockAssets(block, blockName);
   }
   return block;
 }
@@ -673,14 +702,18 @@ async function waitForFirstImage(section) {
  * @param {Element} section The section element
  */
 
-async function loadSection(section, loadCallback) {
+async function loadSection(section, loadCallback, eager = false) {
   const status = section.dataset.sectionStatus;
   if (!status || status === 'initialized') {
     section.dataset.sectionStatus = 'loading';
     const blocks = [...section.querySelectorAll('div.block')];
     for (let i = 0; i < blocks.length; i += 1) {
+      const block = blocks[i];
+      const { blockName } = block.dataset;
+      // Load critical blocks (hero, header) eagerly, others lazily
+      const isEager = eager || ['hero', 'header'].includes(blockName);
       // eslint-disable-next-line no-await-in-loop
-      await loadBlock(blocks[i]);
+      await loadBlock(block, isEager);
     }
     if (loadCallback) await loadCallback(section);
     section.dataset.sectionStatus = 'loaded';
@@ -696,8 +729,10 @@ async function loadSection(section, loadCallback) {
 async function loadSections(element) {
   const sections = [...element.querySelectorAll('div.section')];
   for (let i = 0; i < sections.length; i += 1) {
+    // First section (likely containing hero) should be eager
+    const isEager = i === 0;
     // eslint-disable-next-line no-await-in-loop
-    await loadSection(sections[i]);
+    await loadSection(sections[i], null, isEager);
     if (i === 0 && sampleRUM.enhance) {
       sampleRUM.enhance();
     }
