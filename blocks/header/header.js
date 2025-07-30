@@ -139,6 +139,35 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Wait for Auth0 script to load (moved to delayed loading for performance)
+  if (!window.auth0) {
+    // Try to wait for auth0-loaded event first, fall back to polling
+    await new Promise((resolve) => {
+      if (window.auth0) {
+        resolve();
+        return;
+      }
+
+      const onAuth0Loaded = () => {
+        window.removeEventListener('auth0-loaded', onAuth0Loaded);
+        resolve();
+      };
+
+      window.addEventListener('auth0-loaded', onAuth0Loaded);
+
+      // Fallback polling in case event doesn't work
+      const pollForAuth0 = () => {
+        if (window.auth0) {
+          window.removeEventListener('auth0-loaded', onAuth0Loaded);
+          resolve();
+        } else {
+          setTimeout(pollForAuth0, 100);
+        }
+      };
+      setTimeout(pollForAuth0, 100);
+    });
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
