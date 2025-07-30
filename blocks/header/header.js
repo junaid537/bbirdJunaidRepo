@@ -139,6 +139,31 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Wait for Auth0 to be loaded by delayed.js
+  if (!window.auth0) {
+    await new Promise((resolve) => {
+      if (window.auth0) {
+        resolve();
+        return;
+      }
+      const checkAuth0 = () => {
+        if (window.auth0) {
+          document.removeEventListener('auth0-ready', checkAuth0);
+          resolve();
+        }
+      };
+      document.addEventListener('auth0-ready', checkAuth0);
+      // Fallback timeout in case Auth0 fails to load
+      setTimeout(resolve, 5000);
+    });
+  }
+
+  if (!window.auth0) {
+    // eslint-disable-next-line no-console
+    console.warn('Auth0 not available, skipping authentication features');
+    return;
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
