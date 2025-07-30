@@ -1,1 +1,49 @@
 /* add global styles that can be loaded post LCP here */
+
+/* Button and form element styles - can be lazy loaded */
+a.button:hover,
+a.button:focus,
+button:hover,
+button:focus {
+  background-color: var(--link-hover-color);
+  cursor: pointer;
+}
+
+button:disabled,
+button:disabled:hover {
+  background-color: var(--light-color);
+  cursor: unset;
+}
+
+a.button.secondary,
+button.secondary {
+  background-color: unset;
+  border: 2px solid currentcolor;
+  color: var(--text-color);
+}
+
+/* Icon styles - typically not critical for LCP */
+.icon {
+  display: inline-block;
+  height: 24px;
+  width: 24px;
+}
+
+.icon img {
+  height: 100%;
+  width: 100%;
+}
+
+/* Section decorative styles */
+main .section.light,
+main .section.highlight {
+  background-color: var(--light-color);
+  margin: 0;
+  padding: 40px 0;
+}
+
+/* Advanced interactive styles */
+a:hover {
+  color: var(--link-hover-color);
+  text-decoration: underline;
+}

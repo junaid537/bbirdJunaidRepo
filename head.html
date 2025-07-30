@@ -1,5 +1,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <script src="/scripts/aem.js" type="module"></script>
 <script src="/scripts/scripts.js" type="module"></script>
-<script src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js"></script>
-<link rel="stylesheet" href="/styles/styles.css"/>
+<link rel="preload" href="/styles/styles.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/styles/styles.css"></noscript>
+<script>
+/*! loadCSS. [c]2017 Filament Group, Inc. MIT License */
+!function(e){"use strict";var t=function(t,n,r,o){var i,d=e.document,l=d.createElement("link");if(n)i=n;else{var a=(d.body||d.getElementsByTagName("head")[0]).childNodes;i=a[a.length-1]}var s=d.styleSheets;if(o)for(var f in o)o.hasOwnProperty(f)&&l.setAttribute(f,o[f]);l.rel="stylesheet",l.href=t,l.media="only x",function e(t){if(d.body)return t();setTimeout(function(){e(t)})}(function(){i.parentNode.insertBefore(l,n?i:i.nextSibling)});var u=function(e){for(var t=l.href,n=s.length;n--;)if(s[n].href===t)return e();setTimeout(function(){u(e)})};return l.addEventListener&&l.addEventListener("load",function(){this.media=r||"all"}),l.onloadcssdefined=u,u(function(){l.media!==r&&(l.media=r||"all")}),l};"undefined"!=typeof module?module.exports=t:e.loadCSS=t}("undefined"!=typeof global?global:this);
+</script>
