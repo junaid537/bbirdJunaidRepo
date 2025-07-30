@@ -134,6 +134,61 @@ async function loadEager(doc) {
 }
 
 /**
+ * Dynamically loads block scripts only when blocks are present
+ * @param {Element} main The main element to check for blocks
+ */
+async function loadBlockScripts(main) {
+  const blocks = main.querySelectorAll('[class*="block"]');
+  const loadPromises = [];
+
+  blocks.forEach((block) => {
+    const blockName = Array.from(block.classList)
+      .find((cls) => cls.endsWith('-block'))
+      ?.replace('-block', '');
+
+    if (blockName && !block.dataset.scriptLoaded) {
+      const scriptPath = `/blocks/${blockName}/${blockName}.js`;
+
+      // Use intersection observer for non-critical blocks
+      const loadScript = () => {
+        const promise = import(scriptPath)
+          .then((module) => {
+            block.dataset.scriptLoaded = 'true';
+            // If the block has a default export, call it with the block element
+            if (module.default && typeof module.default === 'function') {
+              return module.default(block);
+            }
+            return module;
+          })
+          .catch(() => {
+            // Script doesn't exist, which is fine
+            block.dataset.scriptLoaded = 'true';
+          });
+        loadPromises.push(promise);
+      };
+
+      // Load immediately for critical blocks like hero, or use intersection observer
+      if (blockName === 'hero' || block.closest('.section:first-child')) {
+        loadScript();
+      } else {
+        // Use intersection observer for below-fold blocks
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && !block.dataset.scriptLoaded) {
+              observer.unobserve(block);
+              loadScript();
+            }
+          });
+        }, { rootMargin: '100px' });
+
+        observer.observe(block);
+      }
+    }
+  });
+
+  return Promise.all(loadPromises);
+}
+/**
  * Loads everything that doesn't need to be delayed.
  * @param {Element} doc The container element
  */
@@ -151,6 +206,9 @@ async function loadLazy(doc) {
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   loadFonts();
   setupPreflightListener();
+
+  // Load block scripts lazily
+  loadBlockScripts(main);
 }
 
 /**
