@@ -154,6 +154,10 @@ async function loadBlockScripts(main) {
         const promise = import(scriptPath)
           .then((module) => {
             block.dataset.scriptLoaded = 'true';
+            // If the block has a default export, call it with the block element
+            if (module.default && typeof module.default === 'function') {
+              return module.default(block);
+            }
             return module;
           })
           .catch(() => {
