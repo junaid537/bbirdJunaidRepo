@@ -149,7 +149,16 @@ async function loadLazy(doc) {
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
-  loadFonts();
+
+  // Load fonts if not already loaded in eager phase
+  try {
+    if (!sessionStorage.getItem('fonts-loaded')) {
+      loadFonts();
+    }
+  } catch (e) {
+    // do nothing
+  }
+
   setupPreflightListener();
 }
 
@@ -158,8 +167,10 @@ async function loadLazy(doc) {
  * without impacting the user experience.
  */
 function loadDelayed() {
+  // Reduce delay on mobile for better perceived performance
+  const delay = window.innerWidth < 900 ? 2000 : 3000;
   // eslint-disable-next-line import/no-cycle
-  window.setTimeout(() => import('./delayed.js'), 3000);
+  window.setTimeout(() => import('./delayed.js'), delay);
   // load anything that can be postponed to the latest here
 }
 
