@@ -148,14 +148,18 @@ async function loadLazy(doc) {
   loadHeader(doc.querySelector('header'));
   loadFooter(doc.querySelector('footer'));
 
-  // Load fonts only if not already loaded in eager phase
+  loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
+
+  // Load fonts if not already loaded in eager phase
   try {
-    if (window.innerWidth < 900 && !sessionStorage.getItem('fonts-loaded')) {
+    if (!sessionStorage.getItem('fonts-loaded')) {
       loadFonts();
     }
   } catch (e) {
     // do nothing
   }
+
+  setupPreflightListener();
 }
 
 /**
@@ -167,8 +171,6 @@ function loadDelayed() {
   const delay = window.innerWidth < 900 ? 2000 : 3000;
   // eslint-disable-next-line import/no-cycle
   window.setTimeout(() => import('./delayed.js'), delay);
-  // Setup preflight listener for development
-  setupPreflightListener();
   // load anything that can be postponed to the latest here
 }
 

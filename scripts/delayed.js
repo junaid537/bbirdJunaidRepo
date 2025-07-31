@@ -21,12 +21,5 @@ async function initDelayedAuth() {
   }
 }
 
-// Load lazy styles that are not critical for initial render
-async function loadDelayedStyles() {
-  const { loadCSS } = await import('./aem.js');
-  await loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
-}
-
 // Initialize delayed functionality
 initDelayedAuth();
-loadDelayedStyles();
