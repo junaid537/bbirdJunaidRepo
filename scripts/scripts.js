@@ -16,6 +16,7 @@ import {
 } from './aem.js';
 
 import createElement from './utils.js';
+import { loadAuth0WhenNeeded } from './lazy-loader.js';
 
 /**
  * Builds hero block and prepends to main in a new section.
@@ -96,6 +97,36 @@ const setupPreflightListener = () => {
 };
 
 /**
+ * Setup authentication features when needed
+ * This implements conditional loading for auth0-spa-js
+ */
+const setupAuthenticationFeatures = () => {
+  // Set up event listeners for authentication triggers
+  document.addEventListener('click', async (event) => {
+    const target = event.target.closest('.login-button, [data-auth="true"]');
+    if (target) {
+      event.preventDefault();
+      try {
+        await loadAuth0WhenNeeded();
+        // Re-dispatch the click event after auth0 is loaded
+        target.click();
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load authentication library:', error);
+      }
+    }
+  });
+
+  // Check URL for auth callback parameters and load auth0 if needed
+  if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
+    loadAuth0WhenNeeded().catch((error) => {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load authentication library for callback:', error);
+    });
+  }
+};
+
+/**
  * Decorates the main element.
  * @param {Element} main The main element
  */
@@ -151,6 +182,7 @@ async function loadLazy(doc) {
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
   loadFonts();
   setupPreflightListener();
+  setupAuthenticationFeatures();
 }
 
 /**
