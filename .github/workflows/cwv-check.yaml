@@ -41,7 +41,6 @@ jobs:
           GOOGLE_CRUX_API_KEY: ${{ secrets.GOOGLE_CRUX_API_KEY }}
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
           PUPPETEER_EXECUTABLE_PATH: "/usr/bin/google-chrome"
-          MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
         run: |
           mkdir -p cwv-output
           echo "Running CWV audits for listed AEM URLs..."
@@ -59,7 +58,6 @@ jobs:
           else
             echo "Cache directory not found"
           fi
-
       - name: Upload Suggestions JSON
         uses: actions/upload-artifact@v4
         with:
