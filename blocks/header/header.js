@@ -53,6 +53,11 @@ function focusNavSection() {
 }
 
 async function updateLoginState() {
+  // Check if auth0 is available
+  if (!auth0) {
+    return;
+  }
+
   const user = await auth0.getUser();
   const loginBtn = document.querySelector('.nav-tools a[title="Login"]');
 
@@ -82,7 +87,10 @@ async function updateLoginState() {
     });
   } else {
     loginBtn.style.display = 'block';
-    document.querySelector('#logout-button').style.display = 'none';
+    const logoutButton = document.querySelector('#logout-button');
+    if (logoutButton) {
+      logoutButton.style.display = 'none';
+    }
   }
 }
 
@@ -139,6 +147,18 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Wait for Auth0 to be loaded if not already available
+  if (!window.auth0) {
+    await new Promise((resolve) => {
+      if (window.auth0) {
+        resolve();
+        return;
+      }
+
+      window.addEventListener('auth0-loaded', resolve, { once: true });
+    });
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
@@ -258,5 +278,9 @@ export default async function decorate(block) {
   navWrapper.append(nav);
   block.append(navWrapper);
 
-  await initAuth0();
+  // Initialize Auth0 asynchronously without blocking header rendering
+  initAuth0().catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error('Auth0 initialization failed:', error);
+  });
 }
