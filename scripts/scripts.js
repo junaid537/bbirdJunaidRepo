@@ -124,10 +124,9 @@ async function loadEager(doc) {
   }
 
   try {
-    /* if desktop (proxy for fast connection) or fonts already loaded, load fonts.css */
-    if (window.innerWidth >= 900 || sessionStorage.getItem('fonts-loaded')) {
-      loadFonts();
-    }
+    /* Load fonts for all viewports to improve mobile LCP.
+       Critical fonts are now preloaded in head.html */
+    loadFonts();
   } catch (e) {
     // do nothing
   }
@@ -149,7 +148,6 @@ async function loadLazy(doc) {
   loadFooter(doc.querySelector('footer'));
 
   loadCSS(`${window.hlx.codeBasePath}/styles/lazy-styles.css`);
-  loadFonts();
   setupPreflightListener();
 }
 
