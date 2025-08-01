@@ -12,7 +12,14 @@ export default function decorate(block) {
     });
     ul.append(li);
   });
-  ul.querySelectorAll('picture > img').forEach((img) => img.closest('picture').replaceWith(createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }])));
+
+  // Optimize image loading - prioritize first few cards that might be above the fold
+  ul.querySelectorAll('picture > img').forEach((img, index) => {
+    // Use high priority for first 2-3 cards, assuming they might be above the fold
+    const fetchPriority = index < 3 ? 'high' : '';
+    img.closest('picture').replaceWith(createOptimizedPicture(img.src, img.alt, false, [{ width: '750' }], fetchPriority));
+  });
+
   block.textContent = '';
   block.append(ul);
 }
