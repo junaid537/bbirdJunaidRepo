@@ -1,4 +1,4 @@
-import { getMetadata } from '../../scripts/aem.js';
+import { getMetadata, loadScript } from '../../scripts/aem.js';
 import { loadFragment } from '../fragment/fragment.js';
 
 // media query match that indicates mobile/tablet width
@@ -139,52 +139,78 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
-  const { createAuth0Client } = window.auth0;
-  auth0 = await createAuth0Client({
-    domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
-    clientId: 'P3icLdZ89e4sdIjht9oHxFpfeeMOtMkY',
-    authorizationParams: {
-      redirect_uri: window.location.origin,
-    },
-  });
+  try {
+    // Dynamically load the auth0 script if not already loaded
+    await loadScript('https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js');
 
-  const isAuthenticated = await auth0.isAuthenticated();
+    // Check if auth0 is available
+    if (!window.auth0) {
+      throw new Error('Auth0 script failed to load properly');
+    }
 
-  if (isAuthenticated) {
-    updateLoginState();
-  } else if (window.location.search.includes('code=') && window.location.search.includes('state=')) {
-    try {
-      await auth0.handleRedirectCallback();
-      // const user = await auth0.getUser();
-      // console.log('User:', user);
+    const { createAuth0Client } = window.auth0;
+    auth0 = await createAuth0Client({
+      domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
+      clientId: 'P3icLdZ89e4sdIjht9oHxFpfeeMOtMkY',
+      authorizationParams: {
+        redirect_uri: window.location.origin,
+      },
+    });
+
+    const isAuthenticated = await auth0.isAuthenticated();
+
+    if (isAuthenticated) {
       updateLoginState();
-      window.history.replaceState({}, document.title, '/');
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('Error handling redirect callback:', err);
+    } else if (window.location.search.includes('code=') && window.location.search.includes('state=')) {
+      try {
+        await auth0.handleRedirectCallback();
+        // const user = await auth0.getUser();
+        // console.log('User:', user);
+        updateLoginState();
+        window.history.replaceState({}, document.title, '/');
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Error handling redirect callback:', err);
+      }
+    }
+
+    const loginBtn = document.querySelector('.nav-tools a[title="Login"]');
+    // const logoutBtn = document.querySelector('.nav-tools a[title="Logout"]');
+
+    if (loginBtn) {
+      loginBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await auth0.loginWithRedirect({
+          redirect_uri: window.location.origin,
+        });
+      });
+    }
+
+    /**
+    logoutBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await auth0.logout({
+        logoutParams: {
+          returnTo: window.location.origin
+        }
+      });
+    });
+      * */
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to initialize Auth0:', error);
+
+    // Graceful fallback: show login button but disable auth functionality
+    const loginBtn = document.querySelector('.nav-tools a[title="Login"]');
+    if (loginBtn) {
+      loginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        // eslint-disable-next-line no-console
+        console.warn('Authentication is currently unavailable');
+        // Could redirect to a fallback login page or show a message
+      });
     }
   }
-
-  const loginBtn = document.querySelector('.nav-tools a[title="Login"]');
-  // const logoutBtn = document.querySelector('.nav-tools a[title="Logout"]');
-
-  loginBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    await auth0.loginWithRedirect({
-      redirect_uri: window.location.origin,
-    });
-  });
-
-  /**
-  logoutBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    await auth0.logout({
-      logoutParams: {
-        returnTo: window.location.origin
-      }
-    });
-  });
-    * */
 }
 
 /**
