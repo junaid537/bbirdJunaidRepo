@@ -199,6 +199,7 @@ jobs:
             });
             const originalAuthor = pr.data.user.login;
             
+            
             // Helper functions
             function createIssueTitle(suggestion, url, deviceType) {
               const urlHost = new URL(url).hostname.split('.')[0];
