@@ -139,6 +139,28 @@ function toggleMenu(nav, navSections, forceExpanded = null) {
 }
 
 async function initAuth0() {
+  // Wait for Auth0 to be available since it's now loaded in the delayed phase
+  if (!window.auth0) {
+    // Poll for Auth0 availability with a reasonable timeout
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds total (50 * 100ms)
+
+    while (!window.auth0 && attempts < maxAttempts) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => {
+        setTimeout(resolve, 100);
+      });
+      attempts += 1;
+    }
+
+    // If Auth0 is still not available, exit gracefully
+    if (!window.auth0) {
+      // eslint-disable-next-line no-console
+      console.warn('Auth0 script not loaded, authentication features will be disabled');
+      return;
+    }
+  }
+
   const { createAuth0Client } = window.auth0;
   auth0 = await createAuth0Client({
     domain: 'dev-moq43cn106jxt2mm.us.auth0.com',
