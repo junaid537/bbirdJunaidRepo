@@ -43,21 +43,21 @@ jobs:
           PUPPETEER_EXECUTABLE_PATH: "/usr/bin/google-chrome"
           MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
         run: |
-          set -x
           mkdir -p cwv-output
-          echo "Running CWV audits for hardcoded AEM URL..."
-          cat urls.json | jq -r '.[]' | while read URL; do
-            echo "🔍 Auditing $URL"
-            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device mobile --model gpt-4o || echo "❌ Mobile audit failed"
-            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device desktop --model gpt-4o || echo "❌ Desktop audit failed"
+          echo "Running CWV audits for listed AEM URLs..."
+          echo '${{ steps.extract_urls.outputs.result }}' | jq -r '.[]' | while read URL; do
+            echo "Auditing $URL"
+            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device mobile --model gpt-4o
+            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device desktop --model gpt-4o
           done
-          echo "📂 Checking cache directory..."
-          if [ -d ".cache" ]; then
-            cp .cache/*.report.gpt4o.summary.md cwv-output/ 2>/dev/null || echo "⚠️ No summary reports found."
-            cp .cache/*.suggestions.gpt4o.json cwv-output/ 2>/dev/null || echo "⚠️ No suggestions found."
+          
+          # Copy output files to our directory
+          if [ -d "node_modules/cwv-agent/.cache" ]; then
+            cp node_modules/cwv-agent/.cache/*.report.gpt4o.summary.md cwv-output/ 2>/dev/null || echo "No summary reports found."
+            cp node_modules/cwv-agent/.cache/*.suggestions.gpt4o.json cwv-output/ 2>/dev/null || echo "No suggestions found."
             ls -la cwv-output/
           else
-            echo "❌ Cache directory not found"
+            echo "Cache directory not found"
           fi
 
       - name: Upload Suggestions JSON
