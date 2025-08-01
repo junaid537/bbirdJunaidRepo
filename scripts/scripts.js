@@ -13,6 +13,7 @@ import {
   loadCSS,
   loadBlock,
   decorateBlock,
+  optimizeImagePriorities,
 } from './aem.js';
 
 import createElement from './utils.js';
@@ -140,6 +141,9 @@ async function loadEager(doc) {
 async function loadLazy(doc) {
   const main = doc.querySelector('main');
   await loadSections(main);
+
+  // Optimize image loading priorities after sections are loaded
+  optimizeImagePriorities();
 
   const { hash } = window.location;
   const element = hash ? doc.getElementById(hash.substring(1)) : false;

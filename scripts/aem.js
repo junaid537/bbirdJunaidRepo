@@ -288,6 +288,7 @@ function getMetadata(name, doc = document) {
  * @param {string} [alt] The image alternative text
  * @param {boolean} [eager] Set loading attribute to eager
  * @param {Array} [breakpoints] Breakpoints and corresponding params (eg. width)
+ * @param {string} [fetchPriority] Set fetchpriority attribute (high, low, or auto)
  * @returns {Element} The picture element
  */
 function createOptimizedPicture(
@@ -295,6 +296,7 @@ function createOptimizedPicture(
   alt = '',
   eager = false,
   breakpoints = [{ media: '(min-width: 600px)', width: '2000' }, { width: '750' }],
+  fetchPriority = '',
 ) {
   const url = new URL(src, window.location.href);
   const picture = document.createElement('picture');
@@ -321,6 +323,10 @@ function createOptimizedPicture(
       const img = document.createElement('img');
       img.setAttribute('loading', eager ? 'eager' : 'lazy');
       img.setAttribute('alt', alt);
+      // Set fetchpriority if specified
+      if (fetchPriority && ['high', 'low', 'auto'].includes(fetchPriority)) {
+        img.setAttribute('fetchpriority', fetchPriority);
+      }
       picture.appendChild(img);
       img.setAttribute('src', `${pathname}?width=${br.width}&format=${ext}&optimize=medium`);
     }
@@ -660,10 +666,49 @@ async function waitForFirstImage(section) {
   await new Promise((resolve) => {
     if (lcpCandidate && !lcpCandidate.complete) {
       lcpCandidate.setAttribute('loading', 'eager');
+      // Set high fetch priority for LCP candidate image
+      if (!lcpCandidate.getAttribute('fetchpriority')) {
+        lcpCandidate.setAttribute('fetchpriority', 'high');
+      }
       lcpCandidate.addEventListener('load', resolve);
       lcpCandidate.addEventListener('error', resolve);
     } else {
       resolve();
+    }
+  });
+}
+
+/**
+ * Optimize image loading priorities across the page
+ * Sets fetchpriority="high" for likely LCP candidates
+ */
+function optimizeImagePriorities() {
+  // Find hero images (likely LCP candidates)
+  const heroImages = document.querySelectorAll('.hero img, .section:first-child img');
+
+  // Find large images that could be LCP candidates
+  const allImages = document.querySelectorAll('img');
+  const largeImages = Array.from(allImages).filter((img) => {
+    const rect = img.getBoundingClientRect();
+    const viewportArea = window.innerWidth * window.innerHeight;
+    const imageArea = rect.width * rect.height;
+    // Consider images that take up significant viewport area
+    return imageArea > viewportArea * 0.1;
+  });
+
+  // Set high priority for hero images
+  heroImages.forEach((img) => {
+    if (!img.getAttribute('fetchpriority')) {
+      img.setAttribute('fetchpriority', 'high');
+    }
+  });
+
+  // Set high priority for above-the-fold large images
+  largeImages.forEach((img) => {
+    const rect = img.getBoundingClientRect();
+    // Only prioritize images in the initial viewport
+    if (rect.top < window.innerHeight && !img.getAttribute('fetchpriority')) {
+      img.setAttribute('fetchpriority', 'high');
     }
   });
 }
@@ -724,6 +769,7 @@ export {
   loadScript,
   loadSection,
   loadSections,
+  optimizeImagePriorities,
   readBlockConfig,
   sampleRUM,
   setup,
