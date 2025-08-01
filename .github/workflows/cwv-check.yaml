@@ -24,7 +24,7 @@ jobs:
           node-version: '18'
 
       - name: Install CWV Agent
-        run: npm install --no-save git+https://github.com/ramboz/cwv-agent.git
+        run: npm install --no-save git+https://github.com/ramboz/cwv-agent.git#mcp-integration
 
       - name: Use hardcoded AEM URL
         id: extract_urls
@@ -41,24 +41,24 @@ jobs:
           GOOGLE_CRUX_API_KEY: ${{ secrets.GOOGLE_CRUX_API_KEY }}
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: "true"
           PUPPETEER_EXECUTABLE_PATH: "/usr/bin/google-chrome"
+          MCP_SERVER_URL: ${{ secrets.MCP_SERVER_URL }}
         run: |
+          set -x
           mkdir -p cwv-output
-          echo "Running CWV audits for listed AEM URLs..."
-          echo '${{ steps.extract_urls.outputs.result }}' | jq -r '.[]' | while read URL; do
-            echo "Auditing $URL"
-            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device mobile --model gpt-4o
-            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device desktop --model gpt-4o
+          echo "Running CWV audits for hardcoded AEM URL..."
+          cat urls.json | jq -r '.[]' | while read URL; do
+            echo "🔍 Auditing $URL"
+            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device mobile --model gpt-4o || echo "❌ Mobile audit failed"
+            node node_modules/cwv-agent/index.js --action prompt --url "$URL" --device desktop --model gpt-4o || echo "❌ Desktop audit failed"
           done
-          
-          # Copy output files to our directory
-          if [ -d "node_modules/cwv-agent/.cache" ]; then
-            cp node_modules/cwv-agent/.cache/*.report.gpt4o.summary.md cwv-output/ 2>/dev/null || echo "No summary reports found."
-            cp node_modules/cwv-agent/.cache/*.suggestions.gpt4o.json cwv-output/ 2>/dev/null || echo "No suggestions found."
+          echo "📂 Checking cache directory..."
+          if [ -d ".cache" ]; then
+            cp .cache/*.report.gpt4o.summary.md cwv-output/ 2>/dev/null || echo "⚠️ No summary reports found."
+            cp .cache/*.suggestions.gpt4o.json cwv-output/ 2>/dev/null || echo "⚠️ No suggestions found."
             ls -la cwv-output/
           else
-            echo "Cache directory not found"
+            echo "❌ Cache directory not found"
           fi
-      
       - name: Upload Suggestions JSON
         uses: actions/upload-artifact@v4
         with:
@@ -98,7 +98,6 @@ jobs:
           find . -name "*.js" -o -name "*.css" | grep -E "(scripts|styles|blocks|head)" | head -20 >> project-context.md
           
           cat project-context.md
-
       - name: Verify Copilot Availability and Get Bot ID
         id: get_copilot_id
         uses: actions/github-script@v7
@@ -169,7 +168,6 @@ jobs:
                 error: error.message
               };
             }
-
       - name: Create GitHub Issues and Auto-Trigger Copilot PRs
         id: create_issues
         if: steps.get_copilot_id.outputs.copilot_available == 'true'
@@ -197,7 +195,6 @@ jobs:
             });
             const originalAuthor = pr.data.user.login;
             
-
             // Helper functions
             function createIssueTitle(suggestion, url, deviceType) {
               const urlHost = new URL(url).hostname.split('.')[0];
@@ -292,7 +289,6 @@ jobs:
                 return false;
               }
             }
-
             // FIXED: Proper Copilot assignment using GraphQL
             async function assignCopilotAgent(issueNodeId) {
               console.log(`🤖 Assigning Copilot agent to issue with node ID: ${issueNodeId}`);
@@ -334,11 +330,9 @@ jobs:
                 return false;
               }
             }
-
             // Function to trigger Copilot PR creation automatically
             async function triggerCopilotPR(issueNumber, suggestion, url, deviceType, originalAuthor) {
               const copilotPrompt = `@${copilotLogin} please create a PR to fix this Core Web Vitals performance issue.
-
             **Implementation Requirements:**
             1. Create a new branch named: \`cwv-fix-${issueNumber}-${suggestion.metric.toLowerCase()}-${deviceType}\`
             2. Implement the optimization described in this issue
@@ -347,15 +341,12 @@ jobs:
             5. Create PR with detailed performance impact description
             6. Assign PR to @${originalAuthor}
             7. Link this issue to the PR
-
             **AEM-Specific Context:**
             - This is an AEM Edge Delivery Services project
             - Look for optimization opportunities in /scripts/, /styles/, /blocks/ directories
             - Maintain AEM EDS architectural patterns
             - Test URL: ${url}
-
             Please proceed with creating the optimization PR immediately.`;
-
               try {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
@@ -434,7 +425,6 @@ jobs:
                       
                       issueNumbers.push(issue.data.number);
                       console.log(`✅ Created issue #${issue.data.number}: ${issueTitle}`);
-
                       // FIXED: Wait a moment, then assign Copilot
                       await new Promise(resolve => setTimeout(resolve, 2000));
                       
@@ -480,8 +470,6 @@ jobs:
               console.log('❌ Error in issue creation process:', error.message);
               throw error;
             }
-
-
       - name: Handle Copilot Unavailable
         if: steps.get_copilot_id.outputs.copilot_available != 'true'
         uses: actions/github-script@v7
@@ -506,7 +494,6 @@ jobs:
               repo: context.repo.repo,
               body: comment
             });
-
       - name: Comment on PR with Created Issues and Auto-PRs
         if: steps.create_issues.outputs.result != '[]'
         uses: actions/github-script@v7
@@ -557,7 +544,6 @@ jobs:
               repo: context.repo.repo,
               body: comment
             });
-
       - name: Upload Desktop Report
         uses: actions/upload-artifact@v4
         with:
